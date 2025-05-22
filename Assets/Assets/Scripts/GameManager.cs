@@ -5,20 +5,28 @@ using UnityEngine.UI;
 
 public class GameManager : MonoBehaviour
 {
-    public List<Transform> pathPoints;
+    public List<Transform> playerPathPoints;
+    public List<Transform> computerPathPoints;
+    public CameraFollow cameraFollow;
+    public GameObject GameWon;
+
 
     public GameObject playerPawn;
     public GameObject computerPawn;
 
     public Button rollDiceButton;
+    public Text rollText;
     public Text resultText;
 
     private int playerIndex = 0;
     private int computerIndex = 0;
+    private GameObject target;
 
     private Dice dice;
     private PawnMovement playerMover;
     private PawnMovement computerMover;
+    private Vector3 initialPlayerPosition;
+    private Vector3 initialComputerPosition;
 
     void Start()
     {
@@ -27,13 +35,16 @@ public class GameManager : MonoBehaviour
         computerMover = computerPawn.GetComponent<PawnMovement>();
 
         rollDiceButton.onClick.AddListener(PlayerTurn);
+        initialPlayerPosition = playerPawn.transform.position;
+        initialComputerPosition = computerPawn.transform.position;
     }
 
     void PlayerTurn()
     {
         rollDiceButton.interactable = false;
+        cameraFollow.target = playerPawn.transform;
         int roll = dice.Roll();
-        resultText.text = "Player : " + roll;
+        rollText.text = "Player : " + roll;
         Debug.Log("Player : " + roll);
         StartCoroutine(MovePawn(playerPawn, playerMover, roll, true));
     }
@@ -43,7 +54,9 @@ public class GameManager : MonoBehaviour
         int currentIndex = isPlayer ? playerIndex : computerIndex;
         int newIndex = currentIndex;
 
-        yield return StartCoroutine(mover.MoveAlongPath(pathPoints, currentIndex, steps, (result) =>
+        List<Transform> currentPath = isPlayer ? playerPathPoints : computerPathPoints;
+
+        yield return StartCoroutine(mover.MoveAlongPath(currentPath, currentIndex, steps, (result) =>
         {
             newIndex = result;
         }));
@@ -51,11 +64,13 @@ public class GameManager : MonoBehaviour
         if (isPlayer) playerIndex = newIndex;
         else computerIndex = newIndex;
 
-        // Check for win
-        if (newIndex >= pathPoints.Count - 1)
+        if (newIndex >= currentPath.Count - 1)
         {
+            rollText.gameObject.SetActive(false);
             resultText.text = (isPlayer ? "Player" : "Computer") + " Wins!";
+            GameWon.gameObject.SetActive(true);
             rollDiceButton.interactable = false;
+            rollDiceButton.gameObject.SetActive(false);
             yield break;
         }
 
@@ -70,13 +85,25 @@ public class GameManager : MonoBehaviour
         }
     }
 
-
-
     IEnumerator ComputerTurn()
     {
         int roll = dice.Roll();
-        resultText.text = "Computer : " + roll;
+        cameraFollow.target = computerPawn.transform;
+        rollText.text = "Computer : " + roll;
         Debug.Log("Computer : " + roll);
         yield return StartCoroutine(MovePawn(computerPawn, computerMover, roll, false));
+    }
+
+    public void RestartGame()
+    {
+        playerIndex = 0;
+        computerIndex = 0;
+        playerPawn.transform.position = initialPlayerPosition;
+        computerPawn.transform.position = initialComputerPosition;
+        GameWon.gameObject.SetActive(false);
+        rollDiceButton.gameObject.SetActive(true);
+        rollDiceButton.interactable = true;
+        rollText.gameObject.SetActive(true);
+        rollText.text = "Roll the dice!";
     }
 }
